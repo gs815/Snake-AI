@@ -10,7 +10,7 @@ obs, _ = env.reset()
 done = False
 
 while True:
-    for event in pygame.event.get():  # gestisce chiusura finestra
+    for event in pygame.event.get():  # manages window closing
         if event.type == pygame.QUIT:
             env.close()
             exit()
@@ -23,4 +23,5 @@ while True:
 
     done = terminated or truncated
     if done:
+
         obs, _ = env.reset()
