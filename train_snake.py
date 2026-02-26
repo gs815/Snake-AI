@@ -4,23 +4,23 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from snake_env import SnakeEnv
 
 # -----------------------------
-# Ambiente vettorizzato richiesto da SB3
+# Vectorized environment required by SB3
 # -----------------------------
 env = DummyVecEnv([lambda: SnakeEnv()])
 
 # -----------------------------
-# Parametri e path modello
+# Parameters and model path
 # -----------------------------
-MODEL_PATH = "ppo_snake"       # verrà salvato come ppo_snake.zip
-total_steps = 3_000_000        # timesteps da eseguire in questa run (sommano se riprendi)
+MODEL_PATH = "ppo_snake"       # will be saved as ppo_snake.zip
+total_steps = 3_000_000        # timesteps to perform in this run (add if you restart)
 
 # -----------------------------
-# Definiamo la rete della policy più grande (usata solo se creiamo un modello nuovo)
+# We define the largest policy network (used only if we create a new model)
 # -----------------------------
 policy_kwargs = dict(net_arch=[256, 256])
 
 # -----------------------------
-# Carica modello esistente se presente, altrimenti crea uno nuovo
+# Load existing template if present, otherwise create a new one
 # -----------------------------
 model_file_exists = os.path.exists(MODEL_PATH) or os.path.exists(MODEL_PATH + ".zip")
 
@@ -29,7 +29,7 @@ if model_file_exists:
         print(f"Found existing model '{MODEL_PATH}'. Loading and continuing training...")
         model = PPO.load(MODEL_PATH, env=env)
     except Exception as e:
-        print("Errore nel caricamento del modello esistente, creerò un nuovo modello. Errore:", e)
+        print("Error loading existing template, I'll create a new template. Error:", e)
         model = PPO(
             "MlpPolicy",
             env,
@@ -41,7 +41,7 @@ if model_file_exists:
             batch_size=64,
         )
 else:
-    print("Nessun modello trovato. Creo un nuovo modello da zero.")
+    print("No templates found. I'm creating a new template from scratch.")
     model = PPO(
         "MlpPolicy",
         env,
@@ -54,19 +54,20 @@ else:
     )
 
 # -----------------------------
-# Addestramento (con gestione Ctrl+C per salvare progressi)
+# Training (with Ctrl+C management to save progress)
 # -----------------------------
 try:
-    print(f"Avvio training per {total_steps:,} timesteps...")
+    print(f"Start training for {total_steps:,} timesteps...")
     model.learn(total_timesteps=total_steps)
 except KeyboardInterrupt:
-    print("\nTraining interrotto dall'utente (KeyboardInterrupt). Salvo modello corrente...")
+    print("\nTraining interrupted by user (KeyboardInterrupt). Saving current model...")
     model.save(MODEL_PATH)
-    print(f"Modello salvato come '{MODEL_PATH}'. Ripeti il training in un secondo momento per continuare.")
+    print(f"Model saved as '{MODEL_PATH}'. Repeat the training later to continue.")
     raise
 
 # -----------------------------
-# Salvataggio modello addestrato
+# Save trained model
 # -----------------------------
 model.save(MODEL_PATH)
-print(f"Modello salvato come '{MODEL_PATH}' dopo {total_steps:,} timesteps!")
+
+print(f"Model saved as '{MODEL_PATH}' after {total_steps:,} timesteps!")
