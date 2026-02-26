@@ -8,13 +8,13 @@ from collections import deque
 GRID_SIZE = 10
 CELL_SIZE = 30
 
-# --- Reward tuning (modifica questi valori per sperimentare) ---
-REWARD_EAT = 5.0            # reward per mangiare il cibo
-REWARD_APPROACH = 0.20      # moltiplicatore per riduzione distanza (manhattan)
-PENALTY_AWAY = -0.5        # penalità per allontanarsi dal cibo
-STEP_PENALTY = -0.03        # penalità per ogni passo (evita looping infinito)
-REPEAT_PENALTY = -0.50      # penalità per ripetere posizione della testa recente
-MAX_RECENT_HEADS = 8        # quanti head recenti tenere in memoria
+# --- Reward tuning (tweak these values ​​to experiment) ---
+REWARD_EAT = 5.0            # reward for eating food
+REWARD_APPROACH = 0.20      # distance reduction multiplier (manhattan)
+PENALTY_AWAY = -0.5        # penalty for walking away from food
+STEP_PENALTY = -0.03        # penalty for each step (avoids infinite looping)
+REPEAT_PENALTY = -0.50      # penalty for repeating recent head position
+MAX_RECENT_HEADS = 8        # how many recent heads to keep in memory
 
 class SnakeEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
@@ -24,11 +24,11 @@ class SnakeEnv(gym.Env):
 
         self.render_mode = render_mode
 
-        # Azioni: 0=su, 1=giu, 2=sinistra, 3=destra
+        # Actions: 0=up, 1=down, 2=left, 3=right
         self.action_space = spaces.Discrete(4)
 
-        # Osservazione = griglia 10x10, valori in [0,1]
-        # 0.0 = vuoto, 0.5 = corpo, 0.75 = testa, 1.0 = cibo
+        # Observation = 10x10 grid, values ​​in [0,1]
+        # 0.0 = empty, 0.5 = body, 0.75 = head, 1.0 = food
         self.observation_space = spaces.Box(
             low=0.0, high=1.0, shape=(GRID_SIZE, GRID_SIZE), dtype=np.float32
         )
@@ -40,10 +40,10 @@ class SnakeEnv(gym.Env):
             )
             pygame.display.set_caption("Snake RL")
 
-        # max_steps per episodio (evita episodi infiniti)
+        # max_steps per episode (avoids infinite episodes)
         self.max_steps = max_steps if max_steps is not None else GRID_SIZE * GRID_SIZE * 6
 
-        # storico recente della testa per rilevare oscillazioni
+        # recent head history to detect oscillations
         self._recent_heads = deque(maxlen=MAX_RECENT_HEADS)
 
         self.reset()
@@ -52,20 +52,20 @@ class SnakeEnv(gym.Env):
         super().reset(seed=seed)
 
         self.snake = [(GRID_SIZE // 2, GRID_SIZE // 2)]
-        # direzione iniziale verso il basso (dx,dy)
+        # initial downward direction (dx,dy)
         self.direction = (0, 1)
         self.food = self._spawn_food()
         self.done = False
         self.steps = 0
         self._recent_heads.clear()
         self._recent_heads.append(self.snake[0])
-        self.score = 0  # numero di cibi mangiati
+        self.score = 0  # number of foods eaten
 
         return self._get_obs(), {}
 
     def _spawn_food(self):
-        # genera posizione valida non occupata dal serpente
-        # se la griglia è piena, ritorna None (vittoria)
+        # generates valid position not occupied by the snake
+        # if the grid is full, return None (win)
         free_cells = (GRID_SIZE * GRID_SIZE) - len(self.snake)
         if free_cells <= 0:
             return None
@@ -79,14 +79,14 @@ class SnakeEnv(gym.Env):
     def _get_obs(self):
         grid = np.zeros((GRID_SIZE, GRID_SIZE), dtype=np.float32)
 
-        # corpo
+        # body
         for i, (x, y) in enumerate(self.snake):
             if i == 0:
-                grid[y][x] = 0.75  # testa
+                grid[y][x] = 0.75  # head
             else:
-                grid[y][x] = 0.5   # corpo
+                grid[y][x] = 0.5   # body
 
-        # cibo (se esiste)
+        # food (if it exists)
         if self.food is not None:
             fx, fy = self.food
             grid[fy][fx] = 1.0
@@ -94,7 +94,7 @@ class SnakeEnv(gym.Env):
         return grid
 
     def step(self, action):
-        # impedisci inversione immediata (evita 180°)
+        # prevent immediate reversal (avoid 180°)
         opposites = {
             (0, -1): (0, 1),
             (0, 1): (0, -1),
@@ -102,7 +102,7 @@ class SnakeEnv(gym.Env):
             (1, 0): (-1, 0),
         }
 
-        # mappa azione -> direzione proposta
+        # action map -> proposed direction
         proposed = self.direction
         if action == 0:
             proposed = (0, -1)
@@ -113,10 +113,10 @@ class SnakeEnv(gym.Env):
         elif action == 3:
             proposed = (1, 0)
 
-        # ignora inversione se è esattamente l'opposto della direzione corrente
+        # ignore reversal if it is exactly the opposite of the current direction
         if opposites.get(self.direction) != proposed:
             self.direction = proposed
-        # altrimenti mantieni la direzione corrente (no suicidio immediato)
+        # otherwise keep going (no immediate suicide)
 
         head_x, head_y = self.snake[0]
         dx, dy = self.direction
@@ -128,7 +128,7 @@ class SnakeEnv(gym.Env):
 
         self.steps += 1
 
-        # controllo collisione (muro o sé stesso)
+        # collision control (wall or self)
         if (
             new_head[0] < 0 or new_head[0] >= GRID_SIZE or
             new_head[1] < 0 or new_head[1] >= GRID_SIZE or
@@ -139,53 +139,53 @@ class SnakeEnv(gym.Env):
             info = {"score": self.score, "steps": self.steps}
             return self._get_obs(), reward, terminated, truncated, info
 
-        # situazione win: se non c'è più posto per il cibo (snake riempie la griglia)
+        # Win situation: if there is no more room for food (snake fills the grid)
         if self.food is None:
-            # gioco vinto
+            # game won
             reward = REWARD_EAT
             terminated = True
             info = {"score": self.score, "steps": self.steps}
             return self._get_obs(), reward, terminated, truncated, info
 
-        # distanza manhattan prima e dopo (reward shaping)
+        # Manhattan distance before and after (reward shaping)
         old_distance = abs(head_x - self.food[0]) + abs(head_y - self.food[1])
         proposed_new_distance = abs(new_head[0] - self.food[0]) + abs(new_head[1] - self.food[1])
 
-        # aggiorna serpente
+        # update snake
         self.snake.insert(0, new_head)
 
         ate = False
         if new_head == self.food:
-            # mangiato
+            # ate
             reward += REWARD_EAT
             self.score += 1
             ate = True
-            # spawn nuovo cibo
+            # spawn new food
             self.food = self._spawn_food()
         else:
-            # non mangiato: rimuovi coda
+            # uneaten: remove tail
             self.snake.pop()
 
-        # reward proporzionale all'avvicinamento (positivo se la distanza diminuisce)
+        # reward proportional to the approach (positive if the distance decreases)
         dist_delta = old_distance - proposed_new_distance
         if dist_delta > 0:
             reward += dist_delta * REWARD_APPROACH
         elif dist_delta < 0:
-            reward += dist_delta * (-PENALTY_AWAY)  # dist_delta è negativo; applica penalità piccola
+            reward += dist_delta * (-PENALTY_AWAY)  # dist_delta is negative; applies small penalty
 
-        # penalità passo-passiva per scoraggiare loop infiniti o giri inutili
+        # Passive step penalty to discourage infinite loops or unnecessary turns
         reward += STEP_PENALTY
 
-        # penalità più forte se si ripete posizione della testa recente (oscillazioni)
+        # stronger penalty if recent head position (oscillations) is repeated
         if new_head in list(self._recent_heads):
-            # se non ha appena mangiato (se ha mangiato è giustificato riposizionarsi)
+            # if he hasn't just eaten (if he has eaten it is justified to reposition himself)
             if not ate:
                 reward += REPEAT_PENALTY
 
-        # aggiorna storico teste
+        # updates test history
         self._recent_heads.appendleft(new_head)
 
-        # timeout / truncated se troppi step
+        # timeout / truncated if too many steps
         if self.steps >= self.max_steps:
             truncated = True
             info = {"score": self.score, "steps": self.steps}
@@ -198,14 +198,14 @@ class SnakeEnv(gym.Env):
         if self.render_mode != "human":
             return
 
-        # disegna sfondo
+        # draw background
         self.screen.fill((30, 30, 30))
 
-        # disegna celle (serpente e cibo)
+        # draw cells (snake and food)
         for y in range(GRID_SIZE):
             for x in range(GRID_SIZE):
                 val = 0.0
-                # ottieni valore dall'osservazione per coerenza
+                # get value from observation for consistency
                 if (x, y) in self.snake:
                     if (x, y) == self.snake[0]:
                         val = 0.75
@@ -215,7 +215,7 @@ class SnakeEnv(gym.Env):
                     val = 1.0
 
                 if val > 0.0:
-                    # colori: testa verde chiaro, corpo verde scuro, cibo rosso
+                    # Colors: light green head, dark green body, red food
                     if val == 0.75:
                         color = (0, 220, 0)
                     elif val == 0.5:
@@ -226,7 +226,7 @@ class SnakeEnv(gym.Env):
                     rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
                     pygame.draw.rect(self.screen, color, rect)
 
-        # disegna griglia sottile per chiarezza
+        # draw thin grid for clarity
         for i in range(GRID_SIZE + 1):
             pygame.draw.line(self.screen, (50, 50, 50), (0, i * CELL_SIZE), (GRID_SIZE * CELL_SIZE, i * CELL_SIZE))
             pygame.draw.line(self.screen, (50, 50, 50), (i * CELL_SIZE, 0), (i * CELL_SIZE, GRID_SIZE * CELL_SIZE))
@@ -234,9 +234,10 @@ class SnakeEnv(gym.Env):
         pygame.display.flip()
 
     def close(self):
-        # chiude pygame in modo pulito
+        # closes pygame cleanly
         try:
             pygame.display.quit()
             pygame.quit()
         except Exception:
+
             pass
